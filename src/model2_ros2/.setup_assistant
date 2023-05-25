@@ -1,0 +1,25 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: model_2
+    relative_path: model_2/urdf/model.urdf.xacro
+  srdf:
+    relative_path: config/model.srdf
+  package_settings:
+    author_name: Majid Dareini
+    author_email: dareinimajid34@gmail.com
+    generated_timestamp: 1683275117
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity

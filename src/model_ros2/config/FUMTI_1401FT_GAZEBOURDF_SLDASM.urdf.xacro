@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="FUMTI_1401FT_GAZEBOURDF_SLDASM">
+    <xacro:arg name="initial_positions_file" default="initial_positions.yaml" />
+
+    <!-- Import FUMTI_1401FT_GAZEBOURDF_SLDASM urdf file -->
+    <xacro:include filename="$(find model_1)/model_1/FUMTI_1401FT_GAZEBOURDF_Modified_SLDASM.urdf.xacro" />
+
+    <!-- Import control_xacro -->
+    <xacro:include filename="FUMTI_1401FT_GAZEBOURDF_SLDASM.ros2_control.xacro" />
+
+
+    <xacro:FUMTI_1401FT_GAZEBOURDF_SLDASM_ros2_control name="FakeSystem" initial_positions_file="$(arg initial_positions_file)"/>
+
+</robot>

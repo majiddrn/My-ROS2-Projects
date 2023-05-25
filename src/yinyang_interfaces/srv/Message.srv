@@ -1,0 +1,6 @@
+string name
+string msg
+int32 length
+int32 checksum
+---
+int32 checksum_r

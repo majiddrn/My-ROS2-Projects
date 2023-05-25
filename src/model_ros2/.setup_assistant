@@ -1,0 +1,25 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: model_1
+    relative_path: model_1/FUMTI_1401FT_GAZEBOURDF_Modified_SLDASM.urdf.xacro
+  srdf:
+    relative_path: config/FUMTI_1401FT_GAZEBOURDF_SLDASM.srdf
+  package_settings:
+    author_name: Majid Dareini
+    author_email: dareinimajid34@gmail.com
+    generated_timestamp: 1683119545
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity

@@ -1,0 +1,5 @@
+string msg
+---
+string res
+---
+uint8 opacity
