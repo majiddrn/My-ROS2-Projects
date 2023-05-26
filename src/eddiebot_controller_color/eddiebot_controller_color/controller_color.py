@@ -6,6 +6,11 @@ from cv_bridge import CvBridge
 import cv2
 import numpy as np
 
+RED_WALK = 0
+YELLOW_WALK = 1
+GREEN_WALK = 2
+IDLE_WALK = 3
+
 class Controller_color(Node):
     def __init__(self):
         super().__init__('controller_color')
@@ -13,6 +18,7 @@ class Controller_color(Node):
         self.CALLBACK_TIME = 0.5
         self.ROTATION_TIME = 2.5
         self.ITERATIONS_OF_ROTATION_TIME = self.ROTATION_TIME / self.CALLBACK_TIME
+        self.walk_state = IDLE_WALK
 
         self.image_sub = self.create_subscription(Image, '/kinect_rgbd_camera/image', self.image_sub_callback, 10)
         self.move_publisher = self.create_publisher(Twist, 'model/eddiebot/cmd_vel', 10)
@@ -61,8 +67,16 @@ class Controller_color(Node):
         img_red_and_bnw = cv2.cvtColor(img_red_and, cv2.COLOR_BGR2GRAY)
         img_green_and_bnw = cv2.cvtColor(img_green_and, cv2.COLOR_BGR2GRAY)
 
+        if np.any(img_yellow_and_bnw > 0):
+            self.rounding = True
+            self.walk_state = YELLOW_WALK
+        
+        if np.any(img_red_and_bnw > 0):
+            self.rounding = True
+            self.walk_state = RED_WALK
 
-
+        if np.any(img_green_and_bnw > 0):
+            self.over = True
         # self.get_logger().info(img_red_and)
 
         # self.get_logger().info(f'data is {msg.data[20]} and the encoding is {msg.encoding} and msg.data.shape.len={len(msg.data)} and img_yellow_and[0][10]={img_yellow_and[0, 10]}')
