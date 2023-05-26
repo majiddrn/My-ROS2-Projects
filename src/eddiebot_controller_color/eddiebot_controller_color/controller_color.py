@@ -10,14 +10,14 @@ RED_WALK = 0
 YELLOW_WALK = 1
 GREEN_WALK = 2
 IDLE_WALK = 3
-ROUNDING_WALK = 4
+FOLLOW_WALK = 4
 REC_THR = 50
 
 class Controller_color(Node):
     def __init__(self):
         super().__init__('controller_color')
 
-        self.CALLBACK_TIME = 0.01
+        self.CALLBACK_TIME = 0.001
         self.ROTATION_TIME = 0.3
         self.ITERATIONS_OF_ROTATION_TIME = self.ROTATION_TIME / self.CALLBACK_TIME
         self.walk_state = IDLE_WALK
@@ -28,6 +28,10 @@ class Controller_color(Node):
         self.moving_timer = self.create_timer(self.CALLBACK_TIME, self.moving_timer_callback)
 
         self.img_wall_and_bnw = None
+        self.yellow_wall = None
+        self.green_wall = None
+        self.red_wall = None
+
         self.rounding = False
         self.over = False
         self.init = False
@@ -38,38 +42,26 @@ class Controller_color(Node):
 
     def moving_timer_callback(self):
         tw = Twist()
-        # self.get_logger().info(f'self.more_rotate={self.more_rotate}')
-        # if self.over:
-            # tw.angular.x = 1.0
-        # else:
-        if self.init:
-            if self.walk_state == IDLE_WALK:
-                # if self.last_walk_state == YELLOW_WALK and self.more_rotate < self.ITERATIONS_OF_ROTATION_TIME:
-                if self.last_walk_state == YELLOW_WALK and self.near_hit(self.img_wall_and_bnw, 50):
-                    # self.more_rotate += 1
-                    tw.angular.z = -0.5
-                elif not self.near_hit(self.img_wall_and_bnw, 50):
-                    # self.get_logger().info('HERE')
-                    self.more_rotate = 0
-                    self.last_walk_state = IDLE_WALK
 
-                if self.last_walk_state == IDLE_WALK:
-                    tw.linear.x = 0.5
+        if self.walk_state == IDLE_WALK:
+            tw.linear.x = 0.5
+        if self.walk_state == YELLOW_WALK:
+            tw.angular.z = -0.5
+            tw.linear.x = 0.1
+        if self.walk_state == RED_WALK:
+            tw.angular.z = 0.5
+            tw.linear.x = 0.1
+        if self.walk_state == FOLLOW_WALK:
+            tw.linear.x = 0.2
+            score = self.get_img_score(self.img_wall_and_bnw)
+            if score < 0:
+                self.get_logger().info('go right it"s negetive')
+                tw.angular.z = -0.05
+            elif score > 0:
+                self.get_logger().info('go left it"s positive')
+                tw.angular.z = 0.05
 
-            if self.walk_state == RED_WALK:
-                tw.angular.z= 0.5
-            if self.walk_state == YELLOW_WALK:
-                self.get_logger().info('HERE')
-                tw.angular.z = -0.5
-            if self.walk_state == GREEN_WALK:
-                tw.angular.z = 0.5
-                self.over = True
-
-
-            self.move_publisher.publish(tw)
-
-        # self.get_logger().info(f"published {tw}")
-        # self.get_logger().info("published")
+        self.move_publisher.publish(tw)
         
 
     def near_hit(self, img, th):
@@ -83,10 +75,14 @@ class Controller_color(Node):
         return False
     
     def threshold_image(self, image, threshold):
-        # Apply binary thresholding to set pixels lower than the threshold to zero
         _, thresholded = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY_INV)
 
         return thresholded
+    
+    def set_pixels_to_255(self, image):
+        image[image > 0] = 255
+        return image
+
 
     def split_color(self, img, lower_bound, upper_bound):
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -100,12 +96,28 @@ class Controller_color(Node):
 
         return img_and
     
-    def get_img_score(self, img):
-        center = int(img.shape[1]/2)
-        end = img.shape[1]
-        img_yellow_score = np.sum(img[:, center:end] - img[:, 0:center])
+    def make_image_clean(self, image):
+        image = np.where(image > 0, 255, image)
+        image = np.where(image < 0, 0, image)
+        return image
+    
+    def get_img_score(self, image):
+        height, width = image.shape[:2]
 
-        return img_yellow_score
+        # Divide the image into left and right halves
+        left_half = image[:, :width // 2]
+        right_half = image[:, width // 2:]
+
+        # Count the number of white pixels (255) on each half
+        left_count = np.count_nonzero(left_half == 255)
+        right_count = np.count_nonzero(right_half == 255)
+
+        if left_count > right_count:
+            return -1
+        elif left_count < right_count:
+            return 1
+        else:
+            return 0
 
 
     def image_sub_callback(self, msg):
@@ -123,20 +135,14 @@ class Controller_color(Node):
         img_red_and_bnw = cv2.cvtColor(img_red_and, cv2.COLOR_BGR2GRAY)
         img_green_and_bnw = cv2.cvtColor(img_green_and, cv2.COLOR_BGR2GRAY)
 
-        self.img_wall_and_bnw = self.threshold_image(cv_image_cam_gray, 150)
+        self.yellow_wall = self.set_pixels_to_255(img_yellow_and_bnw)
+        self.red_wall = self.set_pixels_to_255(img_red_and_bnw)
+        self.green_wall = self.set_pixels_to_255(img_green_and_bnw)
+        self.img_wall_and_bnw = self.threshold_image(cv_image_cam_gray, 65)
 
-        # img_yellow_score = self.get_img_score(self.img_wall_and_bnw)
+        cv2.imwrite('/home/majiddrn/tmp/c.png', self.img_wall_and_bnw)
 
-        # cv2.imwrite('/home/majiddrn/tmp/cyn.png', self.img_wall_and_bnw)
-
-        # tw = Twist()
-        # if img_yellow_score > 0:
-            
-        #     tw.angular.z = -0.5
-        # else:
-        #     tw.angular.z = 0.5
-
-        if self.near_hit(img_yellow_and_bnw, 95):
+        if self.near_hit(img_yellow_and_bnw, 80):
             self.rounding = True
             self.last_walk_state = self.walk_state
             self.walk_state = YELLOW_WALK
@@ -149,12 +155,8 @@ class Controller_color(Node):
             self.over = True
         else:
             if not self.near_hit(img_yellow_and_bnw, 10):
-                # self.last_walk_state = self.walk_state
-                # if not self.near_hit(img_wall_and_bnw, 50):
-                self.walk_state = IDLE_WALK
-        # self.get_logger().info(img_red_and)
-
-        # self.get_logger().info(f'data is {msg.data[20]} and the encoding is {msg.encoding} and msg.data.shape.len={len(msg.data)} and img_yellow_and[0][10]={img_yellow_and[0, 10]}')
+                self.walk_state = FOLLOW_WALK
+        
 
 def main():
     rclpy.init()
