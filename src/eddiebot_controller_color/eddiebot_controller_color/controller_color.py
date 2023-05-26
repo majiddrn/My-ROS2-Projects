@@ -11,6 +11,7 @@ YELLOW_WALK = 1
 GREEN_WALK = 2
 IDLE_WALK = 3
 FOLLOW_WALK = 4
+GOING_RED_WALK = 5
 REC_THR = 50
 
 class Controller_color(Node):
@@ -51,8 +52,15 @@ class Controller_color(Node):
         if self.walk_state == RED_WALK:
             tw.angular.z = 0.5
             tw.linear.x = 0.1
-        if self.walk_state == FOLLOW_WALK:
+        if self.walk_state == GOING_RED_WALK:
             tw.linear.x = 0.2
+            score = self.get_img_score(self.red_wall)
+            if score < 0:
+                tw.angular.z = 0.5
+            elif score > 0:
+                tw.angular.z = -0.5
+        if self.walk_state == FOLLOW_WALK:
+            tw.linear.x = 0.2            
             score = self.get_img_score(self.img_wall_and_bnw)
             if score < 0:
                 self.get_logger().info('go right it"s negetive')
@@ -60,6 +68,7 @@ class Controller_color(Node):
             elif score > 0:
                 self.get_logger().info('go left it"s positive')
                 tw.angular.z = 0.05
+
 
         self.move_publisher.publish(tw)
         
@@ -73,7 +82,7 @@ class Controller_color(Node):
             return True
     
         return False
-    
+
     def threshold_image(self, image, threshold):
         _, thresholded = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY_INV)
 
@@ -95,6 +104,14 @@ class Controller_color(Node):
         img_and = cv2.bitwise_and(img, img, mask=mask)        
 
         return img_and
+    
+    def rotate_ratio(self, image):
+        height, width = image.shape[:2]
+
+        left_half = image[:, :width // 2]
+        right_half = image[:, width // 2:]
+
+        return np.count_nonzero((right_half - left_half) == 255) / ((width // 2) * height)
     
     def make_image_clean(self, image):
         image = np.where(image > 0, 255, image)
@@ -131,28 +148,33 @@ class Controller_color(Node):
         img_green_and = self.split_color(img=cv_image_cam, lower_bound=[50, 100, 100], upper_bound=[70, 255, 255])
         img_wall_and = self.split_color(img=cv_image_cam, lower_bound=[80, 100, 100], upper_bound=[100, 255, 255])
 
-        img_yellow_and_bnw = cv2.cvtColor(img_yellow_and, cv2.COLOR_BGR2GRAY)
-        img_red_and_bnw = cv2.cvtColor(img_red_and, cv2.COLOR_BGR2GRAY)
-        img_green_and_bnw = cv2.cvtColor(img_green_and, cv2.COLOR_BGR2GRAY)
+        img_yellow_and_bnw = self.yellow_wall = cv2.cvtColor(img_yellow_and, cv2.COLOR_BGR2GRAY)
+        img_red_and_bnw = self.red_wall = cv2.cvtColor(img_red_and, cv2.COLOR_BGR2GRAY)
+        img_green_and_bnw = self.green_wall = cv2.cvtColor(img_green_and, cv2.COLOR_BGR2GRAY)
 
         self.yellow_wall = self.set_pixels_to_255(img_yellow_and_bnw)
         self.red_wall = self.set_pixels_to_255(img_red_and_bnw)
         self.green_wall = self.set_pixels_to_255(img_green_and_bnw)
-        self.img_wall_and_bnw = self.threshold_image(cv_image_cam_gray, 65)
+        self.img_wall_and_bnw = self.threshold_image(cv_image_cam_gray, 80)
 
-        cv2.imwrite('/home/majiddrn/tmp/c.png', self.img_wall_and_bnw)
+        cv2.imwrite('/home/majiddrn/tmp/red/r.png', img_red_and_bnw)
 
-        if self.near_hit(img_yellow_and_bnw, 80):
-            self.rounding = True
-            self.last_walk_state = self.walk_state
-            self.walk_state = YELLOW_WALK
-        elif self.near_hit(img_red_and_bnw, 50):
+        
+        if self.near_hit(img_red_and_bnw, 30) and not self.near_hit(img_yellow_and_bnw, 20):
             self.rounding = True
             self.last_walk_state = self.walk_state
             self.walk_state = RED_WALK
+        elif self.near_hit(img_yellow_and_bnw, 80):
+            self.rounding = True
+            self.last_walk_state = self.walk_state
+            self.walk_state = YELLOW_WALK
         elif self.near_hit(img_green_and_bnw, 50):
             self.last_walk_state = self.walk_state
             self.over = True
+        # elif self.near_hit(img_red_and_bnw, 30):
+        #     self.last_walk_state = self.walk_state
+        #     self.red_wall = img_red_and_bnw
+        #     self.walk_state = GOING_RED_WALK
         else:
             if not self.near_hit(img_yellow_and_bnw, 10):
                 self.walk_state = FOLLOW_WALK
