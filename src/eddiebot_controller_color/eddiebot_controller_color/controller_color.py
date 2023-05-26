@@ -56,7 +56,6 @@ class Controller_color(Node):
                 if self.last_walk_state == IDLE_WALK:
                     tw.linear.x = 0.5
 
-
             if self.walk_state == RED_WALK:
                 tw.angular.z= 0.5
             if self.walk_state == YELLOW_WALK:
@@ -82,6 +81,12 @@ class Controller_color(Node):
             return True
     
         return False
+    
+    def threshold_image(self, image, threshold):
+        # Apply binary thresholding to set pixels lower than the threshold to zero
+        _, thresholded = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY_INV)
+
+        return thresholded
 
     def split_color(self, img, lower_bound, upper_bound):
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -107,6 +112,7 @@ class Controller_color(Node):
         self.init = True
 
         cv_image_cam = self.bridge_for_cam.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        cv_image_cam_gray = cv2.cvtColor(cv_image_cam, cv2.COLOR_BGR2GRAY)
 
         img_yellow_and = self.split_color(img=cv_image_cam, lower_bound=[22, 93, 0], upper_bound=[45, 255, 255])
         img_red_and = self.split_color(img=cv_image_cam, lower_bound=[0, 100, 100], upper_bound=[30, 255, 255])
@@ -117,18 +123,18 @@ class Controller_color(Node):
         img_red_and_bnw = cv2.cvtColor(img_red_and, cv2.COLOR_BGR2GRAY)
         img_green_and_bnw = cv2.cvtColor(img_green_and, cv2.COLOR_BGR2GRAY)
 
-        self.img_wall_and_bnw =  cv2.cvtColor(img_wall_and, cv2.COLOR_BGR2GRAY)
+        self.img_wall_and_bnw = self.threshold_image(cv_image_cam_gray, 150)
 
-        img_yellow_score = self.get_img_score(img_yellow_and_bnw)
+        # img_yellow_score = self.get_img_score(self.img_wall_and_bnw)
 
-        cv2.imwrite('/home/majiddrn/tmp/cyn.png', self.img_wall_and_bnw)
+        # cv2.imwrite('/home/majiddrn/tmp/cyn.png', self.img_wall_and_bnw)
 
-        tw = Twist()
-        if img_yellow_score > 0:
+        # tw = Twist()
+        # if img_yellow_score > 0:
             
-            tw.angular.z = -0.5
-        else:
-            tw.angular.z = 0.5
+        #     tw.angular.z = -0.5
+        # else:
+        #     tw.angular.z = 0.5
 
         if self.near_hit(img_yellow_and_bnw, 95):
             self.rounding = True
